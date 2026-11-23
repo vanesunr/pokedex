@@ -1,0 +1,22 @@
+# Local settings (copy .env.example to .env); may hold credentials
+.env
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Go build output and test artifacts
+/bin/
+/api
+/seed
+*.test
+*.out
+coverage.*
+
+# Docs helpers not meant for the repo
+docs/draw_erd.py
+pokedex-api-overview.html

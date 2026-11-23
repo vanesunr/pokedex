@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pokedex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokedex}
+      POSTGRES_DB: ${POSTGRES_DB:-pokedex}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  seed:
+    build: .
+    entrypoint: ["/app/seed"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pokedex}:${POSTGRES_PASSWORD:-pokedex}@db:5432/${POSTGRES_DB:-pokedex}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pokedex}:${POSTGRES_PASSWORD:-pokedex}@db:5432/${POSTGRES_DB:-pokedex}?sslmode=disable
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

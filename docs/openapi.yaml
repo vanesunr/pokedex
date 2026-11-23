@@ -1,0 +1,505 @@
+openapi: 3.0.3
+info:
+  title: Pokedex API
+  version: 1.0.0
+  description: |
+    REST API over the 151 first-generation Pokemon.
+
+    Lists share the same query parameters, paging envelope and error format.
+    Favorites are global (there are no users).
+servers:
+  - url: http://localhost:8080
+    description: Local (make start). The port follows API_PORT in .env.
+tags:
+  - name: Pokemons
+  - name: Types
+  - name: Favorites
+  - name: Health
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthz
+      responses:
+        "200":
+          description: The API is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /pokemons:
+    get:
+      tags: [Pokemons]
+      summary: List pokemons
+      description: Filtered, sorted and paginated list. All filters combine with AND.
+      operationId: listPokemons
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Name"
+        - $ref: "#/components/parameters/Type"
+        - $ref: "#/components/parameters/Weakness"
+        - $ref: "#/components/parameters/Resistant"
+        - $ref: "#/components/parameters/Class"
+        - $ref: "#/components/parameters/Favorite"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          $ref: "#/components/responses/PokemonPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pokemons/{id}:
+    get:
+      tags: [Pokemons]
+      summary: Get a pokemon by id
+      operationId: getPokemonById
+      parameters:
+        - $ref: "#/components/parameters/PokemonId"
+      responses:
+        "200":
+          description: The pokemon.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pokemon"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pokemons/name/{name}:
+    get:
+      tags: [Pokemons]
+      summary: Get a pokemon by name
+      description: Exact match, case-insensitive.
+      operationId: getPokemonByName
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          example: charizard
+      responses:
+        "200":
+          description: The pokemon.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pokemon"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /types:
+    get:
+      tags: [Types]
+      summary: List all pokemon types
+      operationId: listTypes
+      responses:
+        "200":
+          description: Every type name.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: string
+                    example: [Bug, Dragon, Fire, Water]
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /types/{type}/pokemons:
+    get:
+      tags: [Types]
+      summary: List pokemons of a type
+      description: |
+        Same paging, sorting and filters as `GET /pokemons`, restricted to the
+        type in the path. The path type is case-insensitive.
+      operationId: listPokemonsByType
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          example: dragon
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Name"
+        - $ref: "#/components/parameters/Type"
+        - $ref: "#/components/parameters/Weakness"
+        - $ref: "#/components/parameters/Resistant"
+        - $ref: "#/components/parameters/Class"
+        - $ref: "#/components/parameters/Favorite"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          $ref: "#/components/responses/PokemonPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Unknown type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "unknown type \"Nope\": pokemon not found"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /favorites:
+    get:
+      tags: [Favorites]
+      summary: List favorite pokemons
+      description: Same paging, sorting and filters as `GET /pokemons`, restricted to favorites.
+      operationId: listFavorites
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Name"
+        - $ref: "#/components/parameters/Type"
+        - $ref: "#/components/parameters/Weakness"
+        - $ref: "#/components/parameters/Resistant"
+        - $ref: "#/components/parameters/Class"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Order"
+      responses:
+        "200":
+          $ref: "#/components/responses/PokemonPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /favorites/{id}:
+    put:
+      tags: [Favorites]
+      summary: Add a favorite
+      description: Idempotent. Adding an existing favorite is not an error.
+      operationId: addFavorite
+      parameters:
+        - $ref: "#/components/parameters/PokemonId"
+      responses:
+        "204":
+          description: The pokemon is a favorite.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Favorites]
+      summary: Remove a favorite
+      description: Idempotent. Removing a pokemon that is not a favorite is not an error.
+      operationId: removeFavorite
+      parameters:
+        - $ref: "#/components/parameters/PokemonId"
+      responses:
+        "204":
+          description: The pokemon is not a favorite.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  parameters:
+    PokemonId:
+      name: id
+      in: path
+      required: true
+      description: Pokedex number. Must be a positive integer.
+      schema:
+        type: integer
+        minimum: 1
+      example: 25
+    Page:
+      name: page
+      in: query
+      description: Page number, starting at 1. An explicit 0 is rejected.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      description: Items per page. An explicit 0 is rejected.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Name:
+      name: name
+      in: query
+      description: Case-insensitive partial match on the name.
+      schema:
+        type: string
+      example: char
+    Type:
+      name: type
+      in: query
+      description: Repeatable. The pokemon must have all the given types. Case-insensitive.
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+      example: [fire, flying]
+    Weakness:
+      name: weakness
+      in: query
+      description: Only pokemons weak to this type. Case-insensitive.
+      schema:
+        type: string
+      example: water
+    Resistant:
+      name: resistant
+      in: query
+      description: Only pokemons resistant to this type. Case-insensitive.
+      schema:
+        type: string
+      example: bug
+    Class:
+      name: class
+      in: query
+      description: Special class. Case-insensitive.
+      schema:
+        type: string
+        enum: [legendary, mythic]
+    Favorite:
+      name: favorite
+      in: query
+      description: Only favorites (true) or only non-favorites (false).
+      schema:
+        type: boolean
+    Sort:
+      name: sort
+      in: query
+      description: Sort field. The id is always the last sort key, so pages are stable.
+      schema:
+        type: string
+        enum: [id, name, maxCP, maxHP]
+        default: id
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+
+  responses:
+    PokemonPage:
+      description: A page of pokemons.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PokemonPage"
+    BadRequest:
+      description: Invalid input.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "invalid argument: id must be a positive integer"
+    NotFound:
+      description: The pokemon does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: pokemon not found
+    InternalError:
+      description: Unexpected error. The details are logged, not returned.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: internal server error
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Range:
+      type: object
+      required: [min, max]
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+
+    Attack:
+      type: object
+      required: [name, type, damage]
+      properties:
+        name:
+          type: string
+          example: Thunder Shock
+        type:
+          type: string
+          example: Electric
+        damage:
+          type: integer
+          example: 5
+
+    Attacks:
+      type: object
+      required: [fast, special]
+      properties:
+        fast:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attack"
+        special:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attack"
+
+    EvolutionRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    EvolutionRequirement:
+      type: object
+      required: [amount, candyName]
+      properties:
+        amount:
+          type: integer
+        candyName:
+          type: string
+
+    Pokemon:
+      type: object
+      required:
+        - id
+        - name
+        - classification
+        - types
+        - resistant
+        - weaknesses
+        - weightKg
+        - heightM
+        - fleeRate
+        - maxCP
+        - maxHP
+        - attacks
+        - evolutions
+        - previousEvolutions
+        - isFavorite
+      properties:
+        id:
+          type: integer
+          example: 25
+        name:
+          type: string
+          example: Pikachu
+        classification:
+          type: string
+          example: Mouse Pokémon
+        types:
+          type: array
+          items:
+            type: string
+        resistant:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        weightKg:
+          $ref: "#/components/schemas/Range"
+        heightM:
+          $ref: "#/components/schemas/Range"
+        fleeRate:
+          type: number
+        maxCP:
+          type: integer
+        maxHP:
+          type: integer
+        class:
+          type: string
+          enum: [LEGENDARY, MYTHIC]
+          description: Omitted for regular pokemons.
+        captureArea:
+          type: string
+          description: Omitted when unknown.
+        attacks:
+          $ref: "#/components/schemas/Attacks"
+        evolutionRequirement:
+          $ref: "#/components/schemas/EvolutionRequirement"
+        evolutions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvolutionRef"
+        previousEvolutions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvolutionRef"
+        isFavorite:
+          type: boolean
+
+    PokemonPage:
+      type: object
+      required: [items, total, page, pageSize, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Pokemon"
+        total:
+          type: integer
+          description: Number of pokemons that match the filters, across all pages.
+          example: 151
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        totalPages:
+          type: integer
+          example: 8
